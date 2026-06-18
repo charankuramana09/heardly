@@ -1,0 +1,10 @@
+target/
+attendee/
+whisper-service/
+.git/
+.settings/
+.idea/
+.vscode/
+*.iml
+HELP.md
+docs/
