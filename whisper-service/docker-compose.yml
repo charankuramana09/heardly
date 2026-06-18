@@ -1,0 +1,17 @@
+services:
+  whisper:
+    build: .
+    image: otterfree-whisper:latest
+    container_name: otterfree-whisper
+    ports:
+      - "9000:9000"
+    environment:
+      WHISPER_MODEL: base
+      WHISPER_COMPUTE_TYPE: int8
+      WHISPER_DEVICE: cpu
+    volumes:
+      - whisper-cache:/root/.cache
+    restart: unless-stopped
+
+volumes:
+  whisper-cache:

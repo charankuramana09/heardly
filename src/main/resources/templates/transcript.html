@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title th:text="${recording.originalFilename ?: 'Transcript'} + ' — Heardly'">Transcript</title>
+  <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+
+<div th:replace="~{fragments/sidebar :: menuToggle}"></div>
+<div th:replace="~{fragments/sidebar :: backdrop}"></div>
+
+<div class="app-layout">
+  <div th:replace="~{fragments/sidebar :: sidebar('recordings', ${currentUser})}"></div>
+
+  <main class="main">
+    <div class="main-inner">
+      <div class="transcript-topbar">
+        <a th:href="@{/}" class="back-link">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"/>
+            <polyline points="12 19 5 12 12 5"/>
+          </svg>
+          Back to all recordings
+        </a>
+        <button type="button" class="btn btn-danger btn-sm"
+                th:attr="data-delete-recording-id=${recording.id}, data-recording-name=${recording.originalFilename ?: 'this recording'}, data-redirect-after='/'">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/>
+            <path d="M10 11v6M14 11v6"/>
+          </svg>
+          Delete recording
+        </button>
+      </div>
+
+      <div class="transcript-header">
+        <h1 th:text="${insight != null and insight.smartTitle != null} ? ${insight.smartTitle} : ${recording.originalFilename ?: 'Untitled recording'}">name</h1>
+        <div th:if="${insight != null and insight.smartTitle != null and recording.originalFilename != null}"
+             class="file-subtitle mono"
+             th:text="${recording.originalFilename}">filename.mp3</div>
+        <div class="transcript-meta">
+          <span class="status-badge" th:classappend="'status-' + ${#strings.toLowerCase(recording.status.name())}"
+                th:text="${recording.status.name()}">STATUS</span>
+          <span th:if="${transcript != null}" class="sep">·</span>
+          <span th:if="${transcript != null}" th:text="${transcript.language?.toUpperCase()}">EN</span>
+          <span th:if="${transcript != null}" class="sep">·</span>
+          <span th:if="${transcript != null}" th:text="${#numbers.formatDecimal(transcript.durationSeconds, 1, 0)} + ' sec'">0 sec</span>
+          <span th:if="${recording.sizeBytes != null}" class="sep">·</span>
+          <span th:if="${recording.sizeBytes != null}"
+                th:text="${#numbers.formatDecimal(recording.sizeBytes / 1048576.0, 1, 1)} + ' MB'">0 MB</span>
+        </div>
+      </div>
+
+      <section th:if="${recording.status.name() == 'TRANSCRIBING' or recording.status.name() == 'UPLOADED'}"
+               class="info-card">
+        <svg class="info-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="6" x2="12" y2="12"/><line x1="12" y1="18" x2="12.01" y2="18"/>
+        </svg>
+        <div class="info-card-body">
+          <h3>Transcribing…</h3>
+          <p>This page auto-refreshes every 5 seconds. Large files can take a few minutes.</p>
+        </div>
+      </section>
+
+      <section th:if="${recording.status.name() == 'FAILED'}" class="error-card">
+        <svg class="info-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <div class="info-card-body">
+          <h3>Transcription failed</h3>
+          <pre th:text="${recording.errorMessage}">error</pre>
+          <form th:action="@{|/api/recordings/${recording.id}/retry|}" method="post" style="margin-top: 12px">
+            <button class="btn btn-primary btn-sm">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10"/>
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+              </svg>
+              Retry transcription
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <!-- ============ AI INSIGHTS ============ -->
+      <section th:if="${insight != null}" class="insights">
+        <div class="insights-header">
+          <h2 class="insights-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2L8 8H2l5 4-2 8 7-5 7 5-2-8 5-4h-6z"/>
+            </svg>
+            AI insights
+            <span th:if="${insight.modelName != null}" class="insights-model mono" th:text="${insight.modelName}">model</span>
+          </h2>
+          <form th:action="@{|/api/recordings/${recording.id}/insights/regenerate|}" method="post">
+            <button class="btn btn-ghost btn-sm" type="submit">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+              </svg>
+              Regenerate
+            </button>
+          </form>
+        </div>
+
+        <div th:if="${insight.status.name() == 'PENDING'}" class="info-card">
+          <svg class="info-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="6" x2="12" y2="12"/><line x1="12" y1="18" x2="12.01" y2="18"/>
+          </svg>
+          <div class="info-card-body">
+            <h3>Generating insights…</h3>
+            <p>Auto-refreshing every 5 seconds.</p>
+          </div>
+        </div>
+
+        <div th:if="${insight.status.name() == 'FAILED'}" class="error-card">
+          <svg class="info-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <div class="info-card-body">
+            <h3>Insight generation failed</h3>
+            <pre th:text="${insight.errorMessage}">err</pre>
+          </div>
+        </div>
+
+        <div th:if="${insight.status.name() == 'COMPLETED'}" class="insights-grid">
+          <div class="insight-card insight-card-wide" th:if="${insight.summary != null}">
+            <h3 class="insight-card-title">Summary</h3>
+            <p class="insight-summary" th:text="${insight.summary}">summary</p>
+          </div>
+
+          <div class="insight-card insight-card-wide" th:if="${!#lists.isEmpty(actionItems)}">
+            <h3 class="insight-card-title">Action items <span class="insight-count" th:text="${#lists.size(actionItems)}">0</span></h3>
+            <ul class="action-list">
+              <li th:each="a : ${actionItems}" class="action-item">
+                <span class="action-check">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="9 11 12 14 22 4"/>
+                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                  </svg>
+                </span>
+                <div class="action-body">
+                  <div class="action-task" th:text="${a['task']}">task</div>
+                  <div class="action-meta">
+                    <span th:if="${a['owner'] != null}" class="action-tag">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                      </svg>
+                      <span th:text="${a['owner']}">owner</span>
+                    </span>
+                    <span th:if="${a['due'] != null}" class="action-tag">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                      </svg>
+                      <span th:text="${a['due']}">due</span>
+                    </span>
+                  </div>
+                </div>
+              </li>
+            </ul>
+          </div>
+
+          <div class="insight-card" th:if="${!#lists.isEmpty(keyTopics)}">
+            <h3 class="insight-card-title">Key topics</h3>
+            <div class="chip-row">
+              <span th:each="t : ${keyTopics}" class="chip" th:text="${t}">topic</span>
+            </div>
+          </div>
+
+          <div class="insight-card" th:if="${!#lists.isEmpty(decisions)}">
+            <h3 class="insight-card-title">Decisions</h3>
+            <ul class="decision-list">
+              <li th:each="d : ${decisions}" th:text="${d}">decision</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SHARE / MINUTES OF MEETING ============ -->
+      <section th:if="${insight != null and insight.status.name() == 'COMPLETED'}" class="share-section"
+               th:attr="data-share-endpoint=|/api/recordings/${recording.id}/share|">
+        <div class="insights-header">
+          <h2 class="insights-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
+            </svg>
+            Send Minutes of Meeting
+          </h2>
+        </div>
+
+        <div class="share-card">
+          <p class="share-intro">Send this meeting's summary, action items and decisions to your manager or teammate.</p>
+
+          <form class="share-form" autocomplete="off">
+            <label class="share-label" for="shareEmail">Recipient email</label>
+            <input id="shareEmail" type="email" class="form-input" name="email"
+                   th:attr="placeholder=${emailConfigured} ? 'manager@company.com' : 'Email sending is not configured on the server'"
+                   th:disabled="${!emailConfigured}">
+            <p th:if="${!emailConfigured}" class="share-hint">
+              Email isn't configured on the server yet. Ask your admin to set <code>MAIL_HOST</code> / <code>MAIL_USERNAME</code> / <code>MAIL_PASSWORD</code>.
+            </p>
+
+            <label class="share-label" for="shareNote">Note <span class="share-optional">(optional)</span></label>
+            <textarea id="shareNote" class="form-input share-note" name="note" rows="2"
+                      placeholder="Add a short message for the recipient…"></textarea>
+
+            <label class="share-slack-toggle" th:if="${slackConnected}">
+              <input type="checkbox" id="shareSlack" name="slack"> Also post to my connected Slack channel
+            </label>
+
+            <div class="share-actions">
+              <button type="submit" class="btn btn-primary btn-sm share-submit">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                </svg>
+                Send to manager
+              </button>
+              <a th:href="@{/integrations}" class="btn btn-ghost btn-sm">Manage integrations</a>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- ============ AI CHAT ============ -->
+      <section th:if="${transcript != null and chatEnabled}" class="chat-section"
+               th:attr="data-chat-endpoint=|/api/recordings/${recording.id}/chat|,
+                        data-chat-clear-endpoint=|/api/recordings/${recording.id}/chat|">
+        <div class="insights-header">
+          <h2 class="insights-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            Ask Heardly about this recording
+          </h2>
+          <button class="btn btn-ghost btn-sm clear-chat-btn" type="button" th:if="${not #lists.isEmpty(chatHistory)}">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/>
+            </svg>
+            Clear chat
+          </button>
+        </div>
+
+        <div class="chat-card">
+          <div class="chat-messages">
+            <div th:if="${#lists.isEmpty(chatHistory)}" class="chat-empty">
+              <p>Ask any question about what was discussed.</p>
+              <div class="chat-suggestions">
+                <button type="button" class="chat-suggestion" data-q="Give me a one-paragraph summary.">Quick summary</button>
+                <button type="button" class="chat-suggestion" data-q="What were the key decisions?">Key decisions</button>
+                <button type="button" class="chat-suggestion" data-q="List all action items with who is responsible.">Action items + owners</button>
+                <button type="button" class="chat-suggestion" data-q="What were the most important takeaways?">Important takeaways</button>
+              </div>
+            </div>
+            <div th:each="m : ${chatHistory}" class="chat-msg" th:classappend="'chat-msg-' + ${#strings.toLowerCase(m.role.name())}">
+              <div class="chat-bubble" th:text="${m.content}">msg</div>
+            </div>
+          </div>
+          <form class="chat-form" autocomplete="off">
+            <input type="text" class="chat-input" placeholder="Ask anything about this recording…" required>
+            <button type="submit" class="btn btn-primary btn-sm chat-send">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+              Send
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <section th:if="${transcript != null and !chatEnabled}" class="info-card">
+        <svg class="info-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="6" x2="12" y2="12"/><line x1="12" y1="18" x2="12.01" y2="18"/>
+        </svg>
+        <div class="info-card-body">
+          <h3>AI Chat is disabled</h3>
+          <p>Set the OPENAI_API_KEY environment variable (or otterfree.openai.api-key in application.properties) to enable Ask Heardly.</p>
+        </div>
+      </section>
+
+      <section th:if="${transcript != null}">
+        <div class="transcript-toolbar">
+          <a th:href="@{|/api/recordings/${recording.id}/transcript.pdf|}" class="btn btn-secondary btn-sm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="12" y1="18" x2="12" y2="12"/>
+              <polyline points="9 15 12 18 15 15"/>
+            </svg>
+            PDF
+          </a>
+          <a th:href="@{|/api/recordings/${recording.id}/transcript.docx|}" class="btn btn-secondary btn-sm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="12" y1="18" x2="12" y2="12"/>
+              <polyline points="9 15 12 18 15 15"/>
+            </svg>
+            Word
+          </a>
+          <a th:href="@{|/api/recordings/${recording.id}/transcript.txt|}" class="btn btn-secondary btn-sm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+            </svg>
+            Text
+          </a>
+          <a th:href="@{|/api/recordings/${recording.id}/transcript|}" class="btn btn-secondary btn-sm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="16 18 22 12 16 6"/>
+              <polyline points="8 6 2 12 8 18"/>
+            </svg>
+            JSON
+          </a>
+        </div>
+        <article class="segments">
+          <div th:each="seg : ${segments}" class="segment">
+            <div class="seg-time">
+              <span th:text="${seg.startFormatted}">00:00</span>
+              <span class="seg-time-end" th:text="${seg.endFormatted}">00:00</span>
+            </div>
+            <p class="seg-text" th:text="${seg.text}">text</p>
+          </div>
+        </article>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script th:src="@{/js/app.js}"></script>
+<script th:if="${recording.status.name() == 'TRANSCRIBING' or recording.status.name() == 'UPLOADED' or (insight != null and insight.status.name() == 'PENDING')}">
+  setTimeout(() => window.location.reload(), 5000);
+</script>
+</body>
+</html>

@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Integrations — Heardly</title>
+  <link rel="icon" type="image/svg+xml" th:href="@{/favicon.svg}">
+  <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+
+<div th:replace="~{fragments/sidebar :: menuToggle}"></div>
+<div th:replace="~{fragments/sidebar :: backdrop}"></div>
+
+<div class="app-layout">
+  <div th:replace="~{fragments/sidebar :: sidebar('integrations', ${currentUser})}"></div>
+
+  <main class="main">
+    <div class="main-inner">
+      <div class="page-header">
+        <h1>Integrations</h1>
+        <p class="subtitle">Connect Heardly to the tools your team already uses.</p>
+      </div>
+
+      <!-- Surfaced as a toast notification by app.js -->
+      <div th:if="${integrationMessage}" data-toast-type="success" th:attr="data-toast-message=${integrationMessage}" hidden></div>
+      <div th:if="${integrationError}" data-toast-type="error" th:attr="data-toast-message=${integrationError}" hidden></div>
+
+      <div class="integrations-grid">
+
+        <div class="integration-card" th:classappend="${slack != null} ? 'is-connected'">
+          <div class="integration-logo integration-logo-slack">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M5 14.5a2 2 0 1 1 0-4h2v4H5zm5 0a2 2 0 0 1-4 0v-5a2 2 0 1 1 4 0v5zm2-9.5a2 2 0 1 1 4 0v2h-4V5zm0 5a2 2 0 0 1 0-4h5a2 2 0 1 1 0 4h-5zm9 2a2 2 0 1 1 0 4h-2v-4h2zm-5 0a2 2 0 1 1 4 0v5a2 2 0 1 1-4 0v-5zm-2 9.5a2 2 0 1 1-4 0v-2h4v2zm0-5a2 2 0 1 1 0 4H9a2 2 0 1 1 0-4h5z"/>
+            </svg>
+          </div>
+          <div class="integration-body">
+            <h3>Slack</h3>
+            <p>Post the AI summary + action items to a channel when a meeting ends.</p>
+
+            <!-- Connected -->
+            <div th:if="${slack != null}">
+              <span class="integration-tag connected">Connected</span>
+              <p class="integration-meta">Posting to your Slack Incoming Webhook.</p>
+              <div class="integration-actions">
+                <form th:action="@{/integrations/SLACK/test}" method="post">
+                  <button type="submit" class="btn btn-secondary btn-sm">Send test</button>
+                </form>
+                <form th:action="@{/integrations/SLACK/disconnect}" method="post">
+                  <button type="submit" class="btn btn-ghost btn-sm">Disconnect</button>
+                </form>
+              </div>
+            </div>
+
+            <!-- Not connected -->
+            <form th:if="${slack == null}" th:action="@{/integrations/SLACK/connect}" method="post" class="integration-connect">
+              <input type="url" name="target" required placeholder="https://hooks.slack.com/services/..."
+                     class="form-input" />
+              <p class="integration-hint">
+                Create an <a href="https://api.slack.com/messaging/webhooks" target="_blank" rel="noopener">Incoming Webhook</a>
+                in Slack and paste the URL.
+              </p>
+              <button type="submit" class="btn btn-primary btn-sm">Connect</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="integration-card">
+          <div class="integration-logo integration-logo-drive">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6.5 4l5.5 9.5L6.5 23 1 13.5 6.5 4zm11 0L23 13.5 17.5 23 12 13.5 17.5 4zM7.5 14h9L12 22 7.5 14z"/>
+            </svg>
+          </div>
+          <div class="integration-body">
+            <h3>Google Drive</h3>
+            <p>Auto-upload PDF transcripts to a chosen folder. Import audio files from Drive.</p>
+            <span class="integration-tag">Coming soon</span>
+          </div>
+          <button class="btn btn-secondary btn-sm" disabled>Connect</button>
+        </div>
+
+        <div class="integration-card" th:classappend="${gmail != null} ? 'is-connected'">
+          <div class="integration-logo integration-logo-mail">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+              <polyline points="22,6 12,13 2,6"/>
+            </svg>
+          </div>
+          <div class="integration-body">
+            <h3>Email (Gmail)</h3>
+            <p>Email the summary + transcript link when transcription completes.</p>
+
+            <!-- Email server not configured on the server side -->
+            <div th:if="${!emailConfigured}">
+              <span class="integration-tag">Setup required</span>
+              <p class="integration-hint">
+                Ask your administrator to set <code>MAIL_HOST</code>, <code>MAIL_USERNAME</code> and a Gmail
+                <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">App Password</a>
+                to enable email sending.
+              </p>
+            </div>
+
+            <!-- Configured + connected -->
+            <div th:if="${emailConfigured and gmail != null}">
+              <span class="integration-tag connected">Connected</span>
+              <p class="integration-meta">Sending to <strong th:text="${gmail.target}">you@example.com</strong></p>
+              <div class="integration-actions">
+                <form th:action="@{/integrations/GMAIL/test}" method="post">
+                  <button type="submit" class="btn btn-secondary btn-sm">Send test</button>
+                </form>
+                <form th:action="@{/integrations/GMAIL/disconnect}" method="post">
+                  <button type="submit" class="btn btn-ghost btn-sm">Disconnect</button>
+                </form>
+              </div>
+            </div>
+
+            <!-- Configured + not connected -->
+            <form th:if="${emailConfigured and gmail == null}" th:action="@{/integrations/GMAIL/connect}" method="post" class="integration-connect">
+              <input type="email" name="target" required th:value="${userEmail}" placeholder="you@example.com"
+                     class="form-input" />
+              <p class="integration-hint">Where should summaries be emailed?</p>
+              <button type="submit" class="btn btn-primary btn-sm">Connect</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="integration-card">
+          <div class="integration-logo integration-logo-zoom">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="23 7 16 12 23 17 23 7"/>
+              <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+            </svg>
+          </div>
+          <div class="integration-body">
+            <h3>Zoom · Google Meet · Teams</h3>
+            <p>Send a bot to join meetings, record audio, and transcribe automatically.</p>
+            <span class="integration-tag connected">Connected via Recall.ai</span>
+          </div>
+          <a th:href="@{/meetings/new}" class="btn btn-primary btn-sm">Send a bot</a>
+        </div>
+
+        <div class="integration-card">
+          <div class="integration-logo integration-logo-openai">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2L8 8H2l5 4-2 8 7-5 7 5-2-8 5-4h-6z"/>
+            </svg>
+          </div>
+          <div class="integration-body">
+            <h3>OpenAI</h3>
+            <p>Powers AI insights (summary, action items) and Ask Heardly chat.</p>
+            <span class="integration-tag connected">Connected (gpt-4o-mini)</span>
+          </div>
+          <a th:href="@{/}" class="btn btn-secondary btn-sm">View status</a>
+        </div>
+
+        <div class="integration-card">
+          <div class="integration-logo integration-logo-whisper">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+            </svg>
+          </div>
+          <div class="integration-body">
+            <h3>Whisper (local)</h3>
+            <p>Transcribes audio files locally — your audio never leaves your machine.</p>
+            <span class="integration-tag connected">Running</span>
+          </div>
+          <a th:href="@{/upload}" class="btn btn-secondary btn-sm">Upload a file</a>
+        </div>
+
+      </div>
+    </div>
+  </main>
+</div>
+<script th:src="@{/js/app.js}"></script>
+</body>
+</html>
