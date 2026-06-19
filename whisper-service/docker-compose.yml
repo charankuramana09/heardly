@@ -4,7 +4,7 @@ services:
     image: otterfree-whisper:latest
     container_name: otterfree-whisper
     ports:
-      - "9000:9000"
+      - "9000:7860"
     environment:
       WHISPER_MODEL: base
       WHISPER_COMPUTE_TYPE: int8
